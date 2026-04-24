@@ -1,8 +1,7 @@
 import asyncio
 import random
 import time
-from datetime import datetime, timedelta
-from flask import Flask, request
+from flask import Flask, request, render_template_string
 from pyquotex.stable_api import Quotex
 
 app = Flask(__name__)
@@ -30,5 +29,8 @@ async def decide_direction(client, asset):
         return random.choice(["call","put"])
     return max(set(signals), key=signals.count)
 
-@app.route('/login', methods=['POST'])
-def login
+@app.route('/')
+def index():
+    return """
+    <h2>Login to Quot
+"""
