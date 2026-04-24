@@ -1,2 +1,3 @@
-quotexpy
+git+https://github.com/cleitonleonel/pyquotex.git
+playwright
 flask
