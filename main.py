@@ -1,36 +1,50 @@
-import asyncio
-import random
-import time
 from flask import Flask, request, render_template_string
-from pyquotex.stable_api import Quotex
+import os
 
 app = Flask(__name__)
-sessions = {}
 
-ASSETS = ["NZDCHF_otc", "USDINR_otc", "USDBDT_otc", "USDARS_otc", "USDPKR_otc"]
-BASE_AMOUNT = 1.0
-
-async def decide_direction(client, asset):
-    signals = []
-    candles = await client.get_candles(asset, int(time.time()), 3, 60)
-    if candles:
-        ups = sum(1 for c in candles if c["close"] > c["open"])
-        downs = sum(1 for c in candles if c["close"] < c["open"])
-        signals.append("call" if ups > downs else "put")
-
-    rsi = await client.calculate_indicator(asset, "RSI", {"period":14}, history_size=3600, timeframe=60)
-    if rsi and "current" in rsi and rsi["current"] is not None:
-        if rsi["current"] < 30:
-            signals.append("call")
-        elif rsi["current"] > 70:
-            signals.append("put")
-
-    if not signals:
-        return random.choice(["call","put"])
-    return max(set(signals), key=signals.count)
-
-@app.route('/')
-def index():
-    return """
-    <h2>Login to Quot
+# صفحة تسجيل الدخول
+login_page = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Quotex Bot Login</title>
+</head>
+<body>
+    <h2>Login to Quotex Bot</h2>
+    <form method="POST" action="/login">
+        <label>Email:</label><br>
+        <input type="text" name="email"><br><br>
+        <label>Password:</label><br>
+        <input type="password" name="password"><br><br>
+        <input type="submit" value="Login">
+    </form>
+</body>
+</html>
 """
+
+@app.route("/")
+def home():
+    return login_page
+
+@app.route("/login", methods=["POST"])
+def login():
+    email = request.form.get("email")
+    password = request.form.get("password")
+    # هنا تقدر تضيف منطق Quotex API لاحقًا
+    return f"✅ Logged in with {email}. Bot started!"
+
+@app.route("/start")
+def start():
+    # مثال بسيط: يختار زوج وهمي ويعرض الاتجاه
+    pair = "EUR/USD"
+    direction = "⬆️ Up"
+    return f"Trading started on {pair} with direction {direction}"
+
+@app.route("/stop")
+def stop():
+    return "⛔ Trading stopped."
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))  # Railway يعطي PORT تلقائي
+    app.run(host="0.0.0.0", port=port)
