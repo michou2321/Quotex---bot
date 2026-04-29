@@ -1,18 +1,23 @@
 import asyncio
 import random
 import time
+import os
 from datetime import datetime, timedelta
 from pyquotex.stable_api import Quotex
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 
-EMAIL = "wagife9306@mugstock.com"
-PASSWORD = "latchi23@@"
+# Load from environment variables
+EMAIL = os.getenv("EMAIL")
+PASSWORD = os.getenv("PASSWORD")
+API_ID = int(os.getenv("API_ID"))
+API_HASH = os.getenv("API_HASH")
+CHANNEL = os.getenv("CHANNEL")
+SESSION_STRING = os.getenv("SESSION_STRING")
 
-API_ID = 33567199
-API_HASH = "3fdd30ef25043c39d8cc897d6251b8f1"
-CHANNEL = "@latchidz0"
-SESSION_STRING = "1BJWap1wBu3C6kLP7xYgYufmOOP_D_1LT-4maf_t59dVBY0TA2HnqmyiyYwpLhWf5HkEyDVfbcSTWO3z-V2Xpv05ZR7ql9q_WFbIHxjtlPVTMV77e6PXJEAVVnAPs_7yIdbwlqe1q9h2tpgl_W7eZegVzualjenpW6C3lef02f6X9TQJ5PLvuF2dV6Jh5Xi0ZgvZ0qWTesGStNyMqSBgpnS_xrV0Dm0lC6E3PmyTTssYxGEhlqJaHwxXZvyLB7mmOnbt0g0a5gd7s_k-hkdxqHuBLC3a00TuDrj_GJqRiUVhT-gVahZ6JdiQFvynY5nh9Yrs4VLZ0dspMWewKgqrQCS9PHTthsEs="
+if not all([EMAIL, PASSWORD, API_ID, API_HASH, CHANNEL, SESSION_STRING]):
+    print("❌ Missing environment variables! Set them in Railway dashboard.")
+    exit(1)
 
 ASSETS = ["NZDCHF_otc", "USDINR_otc", "USDBDT_otc", "USDARS_otc", "USDPKR_otc"]
 BASE_AMOUNT = 1.0
@@ -140,12 +145,29 @@ async def trade_once(client, asset, amount, direction, duration, target_time):
 
 
 async def main():
-    client = Quotex(email=EMAIL, password=PASSWORD, lang="en")
-    client.set_account_mode("PRACTICE")
+    print("🚀 Bot starting...")
+    
+    # Retry logic for Quotex connection
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            client = Quotex(email=EMAIL, password=PASSWORD, lang="en")
+            client.set_account_mode("PRACTICE")
 
-    connected, reason = await client.connect()
-    if not connected:
-        print("❌ فشل الاتصال:", reason)
+            connected, reason = await client.connect()
+            if connected:
+                print("✅ Connected to Quotex!")
+                break
+            else:
+                print(f"❌ Connection failed (attempt {attempt + 1}/{max_retries}): {reason}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(10 * (attempt + 1))
+        except Exception as e:
+            print(f"❌ Error (attempt {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(10 * (attempt + 1))
+    else:
+        print("❌ Failed to connect to Quotex after retries!")
         return
 
     await client.change_account("PRACTICE")
@@ -202,4 +224,5 @@ async def main():
             await asyncio.sleep(5)
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
