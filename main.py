@@ -2,22 +2,19 @@ import asyncio
 import random
 import time
 import os
+import json
 from datetime import datetime, timedelta
 from pyquotex.stable_api import Quotex
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 
 # Load from environment variables
-EMAIL = os.getenv("EMAIL")
-PASSWORD = os.getenv("PASSWORD")
-API_ID = int(os.getenv("API_ID"))
-API_HASH = os.getenv("API_HASH")
-CHANNEL = os.getenv("CHANNEL")
-SESSION_STRING = os.getenv("SESSION_STRING")
-
-if not all([EMAIL, PASSWORD, API_ID, API_HASH, CHANNEL, SESSION_STRING]):
-    print("❌ Missing environment variables! Set them in Railway dashboard.")
-    exit(1)
+EMAIL = os.getenv("EMAIL", "wagife9306@mugstock.com")
+PASSWORD = os.getenv("PASSWORD", "latchi23@@")
+API_ID = int(os.getenv("API_ID", "33567199"))
+API_HASH = os.getenv("API_HASH", "3fdd30ef25043c39d8cc897d6251b8f1")
+CHANNEL = os.getenv("CHANNEL", "@latchidz0")
+SESSION_STRING = os.getenv("SESSION_STRING", "")
 
 ASSETS = ["NZDCHF_otc", "USDINR_otc", "USDBDT_otc", "USDARS_otc", "USDPKR_otc"]
 BASE_AMOUNT = 1.0
@@ -87,7 +84,7 @@ async def decide_direction(client, asset):
         else: return random.choice(["call","put"])
 
     except Exception as e:
-        print("DECIDE ERROR:", e)
+        print(f"DECIDE ERROR: {e}")
         return random.choice(["call","put"])
 
 
@@ -108,7 +105,7 @@ async def trade_once(client, asset, amount, direction, duration, target_time):
         print(f"🟡 محاولة شراء: {asset} | {direction}")
         success, order_info = await client.buy(amount, asset, direction, duration, time_mode="TIME")
     except Exception as e:
-        print("BUY ERROR:", e)
+        print(f"BUY ERROR: {e}")
         return None, None, None, "none"
 
     if not success or not isinstance(order_info, dict):
@@ -139,7 +136,7 @@ async def trade_once(client, asset, amount, direction, duration, target_time):
             if final_balance > before_balance:
                 result = "win"
     except Exception as e:
-        print("RESULT ERROR:", e)
+        print(f"RESULT ERROR: {e}")
 
     return order_id, asset, direction, result
 
@@ -147,11 +144,33 @@ async def trade_once(client, asset, amount, direction, duration, target_time):
 async def main():
     print("🚀 Bot starting...")
     
+    # Load session from file
+    session_data = None
+    if os.path.exists("session.json"):
+        print("📂 Loading session.json...")
+        try:
+            with open("session.json", "r") as f:
+                session_data = json.load(f)
+                print(f"✅ Session loaded for {EMAIL}")
+        except Exception as e:
+            print(f"⚠️ Could not load session.json: {e}")
+    
     # Retry logic for Quotex connection
-    max_retries = 5
+    max_retries = 10
+    client = None
+    
     for attempt in range(max_retries):
         try:
+            print(f"📡 Connection attempt {attempt + 1}/{max_retries}...")
+            
             client = Quotex(email=EMAIL, password=PASSWORD, lang="en")
+            
+            # If we have session data, use it
+            if session_data and EMAIL in session_data:
+                print("🔑 Using session authentication...")
+                # Store session for future use
+                client.session_data = session_data[EMAIL]
+            
             client.set_account_mode("PRACTICE")
 
             connected, reason = await client.connect()
@@ -159,19 +178,28 @@ async def main():
                 print("✅ Connected to Quotex!")
                 break
             else:
-                print(f"❌ Connection failed (attempt {attempt + 1}/{max_retries}): {reason}")
+                print(f"⚠️ Connection failed: {reason}")
                 if attempt < max_retries - 1:
-                    await asyncio.sleep(10 * (attempt + 1))
+                    wait_time = 30 + (attempt * 10)
+                    print(f"⏳ Waiting {wait_time}s before retry...")
+                    await asyncio.sleep(wait_time)
         except Exception as e:
-            print(f"❌ Error (attempt {attempt + 1}/{max_retries}): {e}")
+            print(f"❌ Error: {str(e)[:100]}")
             if attempt < max_retries - 1:
-                await asyncio.sleep(10 * (attempt + 1))
-    else:
-        print("❌ Failed to connect to Quotex after retries!")
+                wait_time = 30 + (attempt * 10)
+                print(f"⏳ Waiting {wait_time}s before retry...")
+                await asyncio.sleep(wait_time)
+            else:
+                print("❌ Failed to connect after all retries!")
+                return
+    
+    if not client:
+        print("❌ Could not initialize client!")
         return
 
     await client.change_account("PRACTICE")
 
+    # Connect to Telegram
     tg = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
     await tg.start()
 
@@ -217,10 +245,11 @@ async def main():
             else:
                 await tg.send_message(CHANNEL, f"⚠️ النتيجة غير معروفة | {asset_used.upper()}")
 
-            await asyncio.sleep(10)
+            # Wait longer to avoid rate limiting
+            await asyncio.sleep(random.randint(30, 60))
 
         except Exception as e:
-            print("MAIN LOOP ERROR:", e)
+            print(f"MAIN LOOP ERROR: {e}")
             await asyncio.sleep(5)
 
 
