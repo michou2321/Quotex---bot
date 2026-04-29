@@ -1,0 +1,7 @@
+.env
+.venv
+__pycache__/
+*.py[cod]
+*.so
+.DS_Store
+session_*.session
