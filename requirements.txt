@@ -1,3 +1,4 @@
 telethon
 git+https://github.com/cleitonleonel/pyquotex.git
-
+flask
+gunicorn
